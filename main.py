@@ -95,7 +95,32 @@ def get_train_valid_loaders(data_dir, batch_size):
 
 
 def save_test_predictions(model, path):
-    return None
+    test_x = torch.Tensor(np.loadtxt(path) / 255).to(device)
+
+    output = model(test_x)
+    preds = output.data.max(1, keepdim=True)[1]
+
+    with open('output/test.pred', 'w+') as f:
+        f.writelines(map(lambda x: str(int(x)) + '\n', preds))
+
+
+def create_confusion_matrix(model, val_loader, categories_num=10):
+    confusion_martix = []
+    for i in range(categories_num):
+        confusion_martix.append([0] * categories_num)
+    for data, labels in val_loader:
+        data = data.reshape(-1, 28 * 28).to(device)
+        labels = labels.to(device)
+
+        output = model(data)
+        preds = output.data.max(1, keepdim=True)[1]  # get the index of the max log-probability
+        # correct += pred.eq(labels.data.view_as(pred)).sum()
+        for pred, label in zip(preds, labels):
+            confusion_martix[label][pred] += 1
+
+    print('Confustion matrix:')
+    for l in range(categories_num):
+        print(confusion_martix[l])
 
 
 def main():
@@ -108,7 +133,7 @@ def main():
     model = FCModel(784, 100, 10).to(device)
     optimizer = optim.SGD(model.parameters(), lr=0.003, momentum=0.9)
     train_acc_list, train_loss_list, val_acc_list, val_loss_list = [], [], [], []
-    for epoch in range(70):
+    for epoch in range(100):
         train_acc, train_loss = train(epoch + 1, model, train_loader, optimizer)
         val_acc, val_loss = validate(model, val_loader)
         train_acc_list.append(train_acc)
@@ -116,6 +141,7 @@ def main():
         val_acc_list.append(val_acc)
         val_loss_list.append(val_loss)
     save_test_val_acc_loss_plots(train_acc_list, val_acc_list, train_loss_list, val_loss_list)
+    create_confusion_matrix(model, val_loader)
     save_test_predictions(model, 'data/test_x')
 
 
