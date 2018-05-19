@@ -11,7 +11,7 @@ class FCModel(nn.Module):
         self.linear1 = nn.Linear(in_dim, hidden_dim)
         self.linear2 = nn.Linear(hidden_dim, out_dim)
 
-    def forward(self, *input):
+    def forward(self, input):
         out = F.tanh(self.linear1(input))
         out = self.linear2(out)
         return F.log_softmax(out)
