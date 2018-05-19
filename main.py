@@ -17,7 +17,7 @@ import torch.utils
 from torchvision import datasets
 from torchvision import transforms
 from torch.utils.data.sampler import SubsetRandomSampler
-
+from utils import save_test_val_acc_loss_plots
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -25,15 +25,24 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 def train(epoch_num, model, train_loader, optimizer):
     print('Epoch {}:'.format(epoch_num))
     model.train()
-    for batch_idx, (data, labels) in enumerate(train_loader):
+    train_loss = 0.0
+    correct = 0.0
+    for data, labels in train_loader:
         data = data.reshape(-1, 28*28).to(device)
         labels = labels.to(device)
 
         optimizer.zero_grad()
         output = model(data)
         loss = F.nll_loss(output, labels)
+
+        train_loss += F.nll_loss(output, labels, size_average=False).data[0]  # sum up batch loss
+        pred = output.data.max(1, keepdim=True)[1]  # get the index of the max log-probability
+        correct += pred.eq(labels.data.view_as(pred)).sum()
+
         loss.backward()
         optimizer.step()
+    train_acc = float(100.0 * correct) / len(train_loader.sampler)
+    return train_acc, float(train_loss / len(train_loader.sampler))
 
 
 def validate(model, test_loader):
@@ -49,36 +58,20 @@ def validate(model, test_loader):
         pred = output.data.max(1, keepdim=True)[1]  # get the index of the max log-probability
         correct += pred.eq(target.data.view_as(pred)).sum()
     test_loss /= len(test_loader.sampler)
+    test_acc = float(100.0 * correct) / len(test_loader.sampler)
     print('Test set: Average loss: {:.4f}, Accuracy: {}/{} ({:.2f}%)'.format(
-        test_loss, correct, len(test_loader.sampler),
-        float(100.0 * correct) / len(test_loader.sampler)))
+        test_loss, correct, len(test_loader.sampler), test_acc))
+    return test_acc, float(test_loss)
 
 
 def get_train_valid_loaders(data_dir, batch_size):
-    normalize = transforms.Normalize(
-        mean=[0.4914, 0.4822, 0.4465],
-        std=[0.2023, 0.1994, 0.2010],
-    )
-
-    valid_transform = transforms.Compose([
-            transforms.ToTensor(),
-            # normalize,
-    ])
-
-    train_transform = transforms.Compose([
-        transforms.ToTensor(),
-        # normalize,
-    ])
-
     train_dataset = datasets.FashionMNIST(
         root=data_dir, train=True,
-        download=True, transform=train_transform,
-    )
+        download=True, transform=transforms.ToTensor())
 
     valid_dataset = datasets.FashionMNIST(
         root=data_dir, train=True,
-        download=True, transform=valid_transform,
-    )
+        download=True, transform=transforms.ToTensor())
 
     num_train = len(train_dataset)
     indices = list(range(num_train))
@@ -92,56 +85,38 @@ def get_train_valid_loaders(data_dir, batch_size):
 
     train_loader = torch.utils.data.DataLoader(
         train_dataset, batch_size=batch_size, sampler=train_sampler,
-        num_workers=1, pin_memory=True,
-    )
+        num_workers=1, pin_memory=True)
+
     valid_loader = torch.utils.data.DataLoader(
         valid_dataset, batch_size=batch_size, sampler=valid_sampler,
-        num_workers=1, pin_memory=True,
-    )
+        num_workers=1, pin_memory=True)
 
     return (train_loader, valid_loader)
+
+
+def save_test_predictions(model, path):
+    return None
 
 
 def main():
     print(sys.version)
     print(torch.__version__)
-    use_cuda = torch.cuda.is_available()
-    if use_cuda:
-        print('GPU is available')
-    else:
-        print('GPU is not available')
+    print('GPU is available' if torch.cuda.is_available() else 'GPU is not available')
 
-
-    # train_loader = torchvision.datasets.FashionMNIST('./data', train=True, download=True)
-    # test_loader = torchvision.datasets.FashionMNIST('./data', train=False, download=True)
-
-    train_loader, val_loader = get_train_valid_loaders('./data', batch_size=30)
-
-    # l1_labels_count = [0] * 10
-    # l2_labels_count = [0] * 10
-    # # for i in l1.datase
-    #
-    # for batch_idx, (data, labels) in enumerate(l1):
-    #     l1_labels_count[int(labels)] += 1
-    #
-    # for batch_idx, (data, labels) in enumerate(l2):
-    #     l2_labels_count[int(labels)] += 1
-    #
-    # print('train')
-    # for i in range(10):
-    #     print('label {}: {}'.format(i, l1_labels_count[i]))
-    #
-    # print('test')
-    # for i in range(10):
-    #     print('label {}: {}'.format(i, l2_labels_count[i]))
+    train_loader, val_loader = get_train_valid_loaders('./data', batch_size=15)
 
     model = FCModel(784, 100, 10).to(device)
     optimizer = optim.SGD(model.parameters(), lr=0.003, momentum=0.9)
-
-
+    train_acc_list, train_loss_list, val_acc_list, val_loss_list = [], [], [], []
     for epoch in range(70):
-        train(epoch + 1, model, train_loader, optimizer)
-        validate(model, val_loader)
+        train_acc, train_loss = train(epoch + 1, model, train_loader, optimizer)
+        val_acc, val_loss = validate(model, val_loader)
+        train_acc_list.append(train_acc)
+        train_loss_list.append(train_loss)
+        val_acc_list.append(val_acc)
+        val_loss_list.append(val_loss)
+    save_test_val_acc_loss_plots(train_acc_list, val_acc_list, train_loss_list, val_loss_list)
+    save_test_predictions(model, 'data/test_x')
 
 
 if __name__ == '__main__':
