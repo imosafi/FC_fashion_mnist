@@ -11,7 +11,7 @@ import os
 import matplotlib.pyplot as plt
 import torchvision
 import sys
-from fc_model import FCModel
+from fc_model import FCModel, ConvNet
 import torch.utils
 
 from torchvision import datasets
@@ -21,6 +21,8 @@ from utils import save_test_val_acc_loss_plots
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+IS_CNN = True
+
 
 def train(epoch_num, model, train_loader, optimizer):
     print('Epoch {}:'.format(epoch_num))
@@ -28,7 +30,10 @@ def train(epoch_num, model, train_loader, optimizer):
     train_loss = 0.0
     correct = 0.0
     for data, labels in train_loader:
-        data = data.reshape(-1, 28*28).to(device)
+        if IS_CNN:
+            data = data.to(device)
+        else:
+            data = data.reshape(-1, 28 * 28).to(device)
         labels = labels.to(device)
 
         optimizer.zero_grad()
@@ -53,7 +58,10 @@ def validate(model, test_loader):
     val_loss = 0.0
     correct = 0.0
     for data, target in test_loader:
-        data = data.reshape(-1, 28*28).to(device)
+        if IS_CNN:
+            data = data.to(device)
+        else:
+            data = data.reshape(-1, 28 * 28).to(device)
         target = target.to(device)
 
         output = model(data)
@@ -103,6 +111,8 @@ def get_train_validation_test_loaders(data_dir, batch_size):
 
 def save_test_predictions(model, path):
     test_x = torch.Tensor(np.loadtxt(path) / 255).to(device)
+    if IS_CNN:
+        test_x = test_x.view(5000, 1, 28, 28)
 
     output = model(test_x)
     preds = output.data.max(1, keepdim=True)[1]
@@ -116,7 +126,11 @@ def create_confusion_matrix(model, test_loader, categories_num=10):
     for i in range(categories_num):
         confusion_martix.append([0] * categories_num)
     for data, labels in test_loader:
-        data = data.reshape(-1, 28 * 28).to(device)
+        if IS_CNN:
+            data = data.to(device)
+        else:
+            data = data.reshape(-1, 28 * 28).to(device)
+
         labels = labels.to(device)
 
         output = model(data)
@@ -135,9 +149,12 @@ def print_test_acc_loss(model, test_loader):
     test_loss = 0.0
     correct = 0.0
     for data, target in test_loader:
-        data = data.reshape(-1, 28*28).to(device)
-        target = target.to(device)
+        if IS_CNN:
+            data = data.to(device)
+        else:
+            data = data.reshape(-1, 28*28).to(device)
 
+        target = target.to(device)
         output = model(data)
         test_loss += F.nll_loss(output, target, size_average=False).data[0]  # sum up batch loss
         pred = output.data.max(1, keepdim=True)[1]  # get the index of the max log-probability
@@ -155,9 +172,10 @@ def main():
 
     train_loader, val_loader, test_loader = get_train_validation_test_loaders('./data', batch_size=15)
 
-
-
-    model = FCModel(784, 100, 50, 10).to(device)
+    if IS_CNN:
+        model = ConvNet().to(device)
+    else:
+        model = FCModel(784, 100, 50, 10).to(device)
     optimizer = optim.SGD(model.parameters(), lr=0.003, momentum=0.9)
     train_acc_list, train_loss_list, val_acc_list, val_loss_list = [], [], [], []
     for epoch in range(10):
