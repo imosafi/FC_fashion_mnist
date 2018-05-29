@@ -21,7 +21,7 @@ from utils import save_test_val_acc_loss_plots
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-IS_CNN = True
+IS_CNN = False
 
 
 def train(epoch_num, model, train_loader, optimizer):
@@ -164,6 +164,7 @@ def print_test_acc_loss(model, test_loader):
     print('Test set: Average loss: {:.4f}, Accuracy: {}/{} ({:.2f}%)'.format(
         test_loss, correct, len(test_loader.sampler), test_acc))
     return test_acc, test_loss
+
 
 def main():
     print(sys.version)

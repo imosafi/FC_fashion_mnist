@@ -38,26 +38,26 @@ class FCModel(nn.Module):
         self.batch_norm1 = nn.BatchNorm1d(100)
         self.batch_norm2 = nn.BatchNorm1d(50)
 
-    # #with batchnorm
-    # def forward(self, input):
-    #     out = F.relu(self.batch_norm1(self.linear1(input)))
-    #     out = F.relu(self.batch_norm2(self.linear2(out)))
-    #     out = self.linear3(out)
-    #     return F.log_softmax(out)
-
-    # with dropout
-    # def forward(self, input):
-    #     out = F.relu(self.linear1(input))
-    #     out = F.dropout(out, p=0.2, training=self.training)
-    #     out = F.relu(self.linear2(out))
-    #     out = F.dropout(out, p=0.2, training=self.training)
-    #     out = self.linear3(out)
-    #     return F.log_softmax(out)
-
-
-    #regular
+    #with batchnorm
     def forward(self, input):
-        out = F.relu(self.linear1(input))
-        out = F.relu(self.linear2(out))
+        out = F.relu(self.batch_norm1(self.linear1(input)))
+        out = F.relu(self.batch_norm2(self.linear2(out)))
         out = self.linear3(out)
         return F.log_softmax(out)
+
+    # # # with dropout
+    # def forward(self, input):
+    #     out = F.relu(self.linear1(input))
+    #     out = F.dropout(out, p=0.1, training=self.training)
+    #     out = F.relu(self.linear2(out))
+    #     out = F.dropout(out, p=0.1, training=self.training)
+    #     out = self.linear3(out)
+    #     return F.log_softmax(out)
+
+
+    # #regular
+    # def forward(self, input):
+    #     out = F.relu(self.linear1(input))
+    #     out = F.relu(self.linear2(out))
+    #     out = self.linear3(out)
+    #     return F.log_softmax(out)
